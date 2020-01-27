@@ -5,14 +5,14 @@ use Mojo::Base 'Mojolicious::Plugin';
 our $VERSION = '0.01';
 
 has 'ignore';
+has 'ignore_default' => sub { [ qw(127.0.0.0/8 10.0.0.0/8 172.16.0.0./12 192.168.0.0/16) ] };
 
 sub register {
     my $self = shift;
     my ($app, $conf) = @_;
 
-    if ($conf->{ignore}) {
-        $self->ignore($conf->{ignore});
-    }
+    $self->ignore($conf->{ignore})       if $conf->{ignore};
+    $self->ignore_default($conf->{ignore_default}) if $conf->{ignore_default};
 
     $app->helper(client_ip => sub {
         my ($c) = @_;
@@ -37,7 +37,7 @@ sub _find {
     state $octet = '(?:25[0-5]|2[0-4][0-9]|[0-1]?[0-9]{1,2})';
     state $ip4   = qr/\A$octet\.$octet\.$octet\.$octet\z/;
     state $ignore = [
-        qw(127.0.0.0/8 10.0.0.0/8 172.16.0.0./12 192.168.0.0/16),
+        @{$self->ignore_default},
         @{$self->ignore // []},
     ];
 
@@ -110,8 +110,25 @@ Find a client IP address from X-Forwarded-For. Private network addresses in XFF 
 =head2 ignore
 
 Specify IP list to be ignored with ArrayRef.
+Note that the values from 'ignore_default' are appended to this list.
 
     plugin 'ClientIP', ignore => [qw(192.0.2.1 192.0.2.16/28)];
+
+=head2 ignore_default
+
+Specify the default ignore list which will be appended to the ignore list.
+
+The default 'ignore_default' list is
+
+    qw(127.0.0.0/8 10.0.0.0/8 172.16.0.0./12 192.168.0.0/16)
+
+You can then for example authorize IPs from 10.0.0./8 by removing it from the ignore_default
+
+    plugin 'ClientIP', ignore_default => [qw(127.0.0.0/8  172.16.0.0./12 192.168.0.0/16)];
+
+Or only ignore "192.168.2.1 192.168.2.16/28" and authorize the other IPs in 192.168.0.0/16
+
+    plugin 'ClientIP', ignore => [qw(192.168.2.1 192.168.2.16/28)], ignore_default => [qw(127.0.0.0/8 10.0.0.0/8 172.16.0.0./12)];
 
 =head1 LICENSE
 
